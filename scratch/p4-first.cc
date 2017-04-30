@@ -25,6 +25,8 @@ int main(int argc, char *argv[])
 	Time::SetResolution(Time::NS);
 
 	NS_LOG_INFO("Now let's get started!");
+    LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
 	// Init NodeContainer
 	NodeContainer csmaSwitch;
@@ -52,7 +54,6 @@ int main(int argc, char *argv[])
 	Ptr<Node> switchNode = csmaSwitch.Get(0);
 	OpenFlowSwitchHelper swtch;
     Ptr<ns3::ofi::LearningController> controller = CreateObject<ns3::ofi::LearningController> ();
-    if (!timeout.IsZero ()) controller->SetAttribute ("ExpirationTime", TimeValue (timeout));
     swtch.Install (switchNode, switchDevices, controller);//Install swtichDevice onto switchNode
 
 
@@ -61,39 +62,25 @@ int main(int argc, char *argv[])
     internet.Install(terminals);
     // Add internet ip to the "NIC" of the node
     Ipv4AddressHelper ipv4;
-    ipv4.SetBase("10.0.0.1","255.255.255.0");
-    ipv4.Assign(terminalDevices);
+    ipv4.SetBase("10.1.1.0","255.255.255.0");
+    Ipv4InterfaceContainer interfaces = ipv4.Assign(terminalDevices);
 
 
     // Init Application
     UdpEchoServerHelper echoServer(99);
-    ApplicationContainer serverApps = echoServer.Install(terminalDevices.Get(0));
+    ApplicationContainer serverApps = echoServer.Install(terminals.Get(0));
     serverApps.Start(Seconds(1.0));
     serverApps.Stop(Seconds(10.0));
-    UdpEchoClientHelper echoClient()
+    UdpEchoClientHelper echoClient(interfaces.GetAddress(0),99);
+    echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+    echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+    echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
+    ApplicationContainer clientApps = echoClient.Install (terminals.Get (1));
+    clientApps.Start (Seconds (2.0));
+    clientApps.Stop (Seconds (10.0));
 
+    Simulator::Run ();
+    Simulator::Destroy ();
+    return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
