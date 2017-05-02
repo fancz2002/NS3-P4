@@ -11,12 +11,12 @@ using namespace bm;
 
 struct ns3PacketAndPort{
 	int port_num;
-	ns3::Ptr<ns3::Packet> packet;
+	ns3::Packet * packet;
 };
 
 struct bm2PacketAndPort{
 	int port_num;
-	ns3::Ptr<bm::Packet> packet;
+	bm::Packet * packet;
 };
 
 
@@ -29,14 +29,13 @@ public:
 
 
 	int init(int argc, char *argv[]);
-	P4Model(std::string jsonfilelocation);
+	P4Model();
 private:
 
 	struct bm2PacketAndPort * ns3tobmv2(struct ns3PacketAndPort *);
 	struct ns3PacketAndPort * bmv2tons3(struct bm2PacketAndPort *);
-
-
-    using clock = std::chrono::high_resolution_clock;
+	int pktID = 0;
+    //using clock = std::chrono::high_resolution_clock;
     bm::TargetParserBasic * argParser;
 
 };
