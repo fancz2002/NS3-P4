@@ -1,4 +1,8 @@
 #include "p4-model.h"
+#include <memory>
+#include <bm/bm_sim/switch.h>
+#include <boost/thread/shared_mutex.hpp>
+
 #define MAXSIZE 100000
 using namespace bm;
 
@@ -22,7 +26,7 @@ struct ns3PacketAndPort * P4Model::receivePacket(struct ns3PacketAndPort *ns3pac
     phv->reset_metadata();
     phv->get_field("standard_metadata.ingress_port").set(port_num);
     phv->get_field("standard_metadata.packet_length").set(len);
-    Field &f_instance_type = phv->get_field("standard_metadata.instance_type");
+    //Field &f_instance_type = phv->get_field("standard_metadata.instance_type");
 
     if (phv->has_field("intrinsic_metadata.ingress_global_timestamp")) {
         phv->get_field("intrinsic_metadata.ingress_global_timestamp")
@@ -78,10 +82,12 @@ struct bm2PacketAndPort * P4Model::ns3tobmv2(struct ns3PacketAndPort *ns3packet)
 	struct bm2PacketAndPort * ret = new struct bm2PacketAndPort;
 	int len = ns3packet->packet->GetSize();
 	int port_num = ns3packet->port_num;
-	uint8_t * buffer = new uint8_t *[sizeof(uint8_t)*MAXSIZE];
-	if (ns3packet->packet->Serialize(buffer,MAXSIZE)){
-		ret->packet = new_packet_ptr(port_num, pktID++, len,
-				bm::PacketBuffer(len + 512, buffer, len));	}
+	void * buffer = new uint8_t *[sizeof(uint8_t)*MAXSIZE];
+	if (ns3packet->packet->Serialize((uint8_t *)buffer,MAXSIZE)){
+		 std::unique_ptr<bm::Packet> packet_= new_packet_ptr(port_num, pktID++, len,
+				bm::PacketBuffer(len + 512, (char *)buffer, len));
+		 ret->packet = packet_.get();
+	}
 	ret-> port_num = port_num;
 	return ret;
 }
