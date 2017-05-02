@@ -1,13 +1,44 @@
+#include "p4-net-device.h"
 #include "p4-model.h"
-#include <memory>
 #include <bm/bm_sim/switch.h>
-#include <boost/thread/shared_mutex.hpp>
+
+int P4NetDevice::ReceiveFromDevice(Ptr<NetDevice> device, Ptr<ns3::Packet> packet, uint16_t protocol,
+        Address const &source, Address const &destination, PacketType packetType){
+	int port_num = GetPortNumber(device);
+	struct ns3PacketAndPort *ns3packet = new (struct ns3PacketAndPort);
+	ns3packet->port_num = port_num;
+	ns3packet->packet = packet.operator ->();
+	struct ns3PacketAndPort * egress_packetandport = p4Model->receivePacket(ns3packet);
+	Ptr<ns3::Packet> egress_packet = egress_packetandport->packet;
+	int egress_port_num = egress_packetandport->port_num;
+	Ptr<NetDevice>outNetDevice = GetBridgePort(egress_port_num);
+	Address * tmp_address = new Address;
+	int result = outNetDevice->Send(packet,*tmp_address,0);
+	return result;
+}
+
+
+int P4NetDevice::GetPortNumber(Ptr<NetDevice> port){
+	int ports_num = GetNBridgePorts();
+	for (int i = 0;i<ports_num;i++){
+		if (GetBridgePort(i)==port)
+			return i;
+	}
+	return -1;
+}
+
+
+P4NetDevice::P4NetDevice(){
+	p4Model = new P4Model;
+	p4Model->init(0,0);
+	}
+
+
 
 #define MAXSIZE 100000
-using namespace bm;
 
 P4Model::P4Model(){
-	argParser = new TargetParserBasic();
+	argParser = new bm::TargetParserBasic();
 }
 
 
@@ -16,13 +47,16 @@ int P4Model::init(int argc, char *argv[]){
     return 0;
 }
 
+
+
+
 struct ns3PacketAndPort * P4Model::receivePacket(struct ns3PacketAndPort *ns3packet){
 	struct bm2PacketAndPort * bm2packet= ns3tobmv2(ns3packet);
 	bm::Packet *packet = bm2packet->packet;
 	int port_num = bm2packet->port_num;
 	int len = packet->get_data_size();
 	packet->set_ingress_port(port_num);
-    PHV *phv = packet->get_phv();
+    bm::PHV *phv = packet->get_phv();
     phv->reset_metadata();
     phv->get_field("standard_metadata.ingress_port").set(port_num);
     phv->get_field("standard_metadata.packet_length").set(len);
@@ -34,8 +68,8 @@ struct ns3PacketAndPort * P4Model::receivePacket(struct ns3PacketAndPort *ns3pac
     }
 
     // Ingress
-    Parser *parser = this->get_parser("parser");
-    Pipeline *ingress_mau = this->get_pipeline("ingress");
+    bm::Parser *parser = this->get_parser("parser");
+    bm::Pipeline *ingress_mau = this->get_pipeline("ingress");
     phv = packet->get_phv();
 
     parser->parse(packet);
@@ -45,12 +79,12 @@ struct ns3PacketAndPort * P4Model::receivePacket(struct ns3PacketAndPort *ns3pac
     packet->reset_exit();
 
 
-    Field &f_egress_spec = phv->get_field("standard_metadata.egress_spec");
+    bm::Field &f_egress_spec = phv->get_field("standard_metadata.egress_spec");
     int egress_port = f_egress_spec.get_int();
 
     // Egress
-    Deparser *deparser = this->get_deparser("deparser");
-    Pipeline *egress_mau = this->get_pipeline("egress");
+    bm::Deparser *deparser = this->get_deparser("deparser");
+    bm::Pipeline *egress_mau = this->get_pipeline("egress");
     f_egress_spec = phv->get_field("standard_metadata.egress_spec");
     f_egress_spec.set(0);
     egress_mau->apply(packet);
@@ -91,4 +125,5 @@ struct bm2PacketAndPort * P4Model::ns3tobmv2(struct ns3PacketAndPort *ns3packet)
 	ret-> port_num = port_num;
 	return ret;
 }
+
 

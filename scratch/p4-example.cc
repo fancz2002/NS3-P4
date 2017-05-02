@@ -37,8 +37,8 @@
 #include "ns3/applications-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
-#include "p4-model.h"
-#include "p4-helper.h"
+#include "../p4/p4-model.h"
+#include "../p4/p4-helper.h"
 
 using namespace ns3;
 
